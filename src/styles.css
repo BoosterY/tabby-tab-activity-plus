@@ -1,0 +1,59 @@
+/* Tabby Tab Activity Plus - Indicator Styles */
+
+/* Override Tabby's built-in activity indicator (replaced by this plugin) */
+tab-header .activity-indicator {
+  display: none !important;
+}
+
+@keyframes tap-running-sweep {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes tap-running-pulse {
+  0%   { opacity: 0.4; }
+  50%  { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+
+@keyframes tap-glow-pulse {
+  0%   { box-shadow: 0 0 4px var(--tap-color1), 0 0 8px var(--tap-color2); }
+  50%  { box-shadow: 0 0 8px var(--tap-color1), 0 0 16px var(--tap-color2); }
+  100% { box-shadow: 0 0 4px var(--tap-color1), 0 0 8px var(--tap-color2); }
+}
+
+.tap-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--tap-bar-height, 3px);
+  z-index: 10;
+  pointer-events: none;
+  transition: opacity 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Running / Fallback: gradient sweep + breathing pulse */
+.tap-indicator.tap-running,
+.tap-indicator.tap-fallback {
+  background: linear-gradient(90deg, var(--tap-color1), var(--tap-color2), var(--tap-color1));
+  background-size: 300% 100%;
+  animation:
+    tap-running-sweep 1.2s linear infinite,
+    tap-running-pulse 2s ease-in-out infinite,
+    tap-glow-pulse 2s ease-in-out infinite;
+}
+
+/* Success: solid glow */
+.tap-indicator.tap-success {
+  background: var(--tap-success-color);
+  box-shadow: 0 0 8px var(--tap-success-color), 0 0 16px color-mix(in srgb, var(--tap-success-color) 50%, transparent);
+  opacity: 1;
+}
+
+/* Failed: solid glow */
+.tap-indicator.tap-failed {
+  background: var(--tap-failed-color);
+  box-shadow: 0 0 8px var(--tap-failed-color), 0 0 16px color-mix(in srgb, var(--tap-failed-color) 50%, transparent);
+  opacity: 1;
+}
