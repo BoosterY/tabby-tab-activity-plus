@@ -10,13 +10,22 @@ Enhanced tab activity indicator for [Tabby](https://tabby.sh) — replaces the b
 
 | State | Indicator | When |
 |-------|-----------|------|
-| **Running** | 🟣 Blue-purple breathing pulse | Command is executing in a background tab |
+| **Running** | 🟣 Blue-purple breathing pulse | Command executing, has output |
+| **Running-idle** | 🟣 Static dim gradient bar | Command running but no output for N seconds (e.g. TUI idle) |
 | **Success** | 🔵 Solid blue glow | Command finished with exit code 0 |
 | **Failed** | 🟣 Solid purple glow | Command finished with non-zero exit code |
 | **Fallback** | 🟣 Breathing pulse | Output detected, no shell integration |
+| **Fallback-idle** | 🔵 Solid blue glow | Output stopped, unread (no shell integration) |
 | **Idle** | *(hidden)* | No activity, or tab is focused |
 
-Switching to a tab clears its indicator (marks as "read").
+### Behavior
+
+- **Non-focused tab**: shows all states above
+- **Focused tab**: briefly shows success/failed (auto-clears after `dismissTimeout`), hides running states
+- **Switching to a tab**: clears the indicator; for running-idle, suppresses until new output arrives
+- **TUI apps** (e.g. Kiro CLI): flashes while outputting, dims when idle, flashes again on new output
+
+> This plugin hides Tabby's built-in activity indicator and progressbar.
 
 ## How It Works
 
@@ -36,13 +45,12 @@ Search for `tabby-tab-activity-plus` in Tabby's **Settings → Plugins**.
 ### Manual
 
 ```bash
-# Build
 git clone https://github.com/BoosterY/tabby-tab-activity-plus.git
 cd tabby-tab-activity-plus
 npm install --legacy-peer-deps
 npm run build
 
-# Install — copy dist/index.js and package.json to Tabby's plugin directory:
+# Copy dist/index.js and package.json to Tabby's plugin directory:
 # macOS:  ~/Library/Application Support/tabby/plugins/node_modules/tabby-tab-activity-plus/
 # Windows: %APPDATA%/tabby/plugins/node_modules/tabby-tab-activity-plus/
 # Linux:  ~/.config/tabby/plugins/node_modules/tabby-tab-activity-plus/
@@ -72,7 +80,7 @@ source /path/to/tabby-tab-activity-plus/src/shell-integration/bash.sh
 
 Or copy the snippet from [`src/shell-integration/bash.sh`](src/shell-integration/bash.sh).
 
-> **Note:** Without shell integration, the plugin still works in fallback mode — it shows a breathing pulse whenever there's terminal output in a background tab.
+> **Note:** Without shell integration, the plugin still works in fallback mode — it shows a breathing pulse whenever there's terminal output in a background tab, and a solid glow when output stops.
 
 ## Configuration
 
@@ -80,7 +88,9 @@ In Tabby's config file (`config.yaml`):
 
 ```yaml
 tabActivityPlus:
-  quietTimeout: 3        # Seconds of silence before fallback indicator clears
+  quietTimeout: 3           # Seconds of silence before fallback indicator settles
+  dismissTimeout: 1         # Seconds before success/failed auto-clears on focused tab
+  runningIdleTimeout: 5     # Seconds of no output before running → running-idle
   runningColor1: '#89b4fa'  # Primary color (blue, Catppuccin Mocha)
   runningColor2: '#cba6f7'  # Secondary color (purple, Catppuccin Mocha)
   successColor: '#89b4fa'   # Command succeeded
@@ -92,7 +102,7 @@ All colors default to [Catppuccin Mocha](https://catppuccin.com/) palette. Overr
 
 ## Compatibility
 
-- Tabby 1.0.200+
+- Tabby 1.0.156+
 - Works on macOS, Windows, and Linux
 - Works with local terminals, SSH sessions, and WSL
 - Supports multiple tabs with identical titles

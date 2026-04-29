@@ -1,7 +1,8 @@
 /* Tabby Tab Activity Plus - Indicator Styles */
 
-/* Override Tabby's built-in activity indicator (replaced by this plugin) */
-tab-header .activity-indicator {
+/* Override Tabby's built-in activity indicator and progressbar (replaced by this plugin) */
+tab-header .activity-indicator,
+tab-header .progressbar {
   display: none !important;
 }
 
@@ -44,14 +45,29 @@ tab-header .activity-indicator {
     tap-glow-pulse 2s ease-in-out infinite;
 }
 
-/* Success: solid glow */
+/* Running-idle: static low-opacity gradient (command still running, but no output) */
+.tap-indicator.tap-running-idle {
+  background: linear-gradient(90deg, var(--tap-color1), var(--tap-color2), var(--tap-color1));
+  background-size: 300% 100%;
+  background-position: 50% 0;
+  opacity: 0.6;
+}
+
+/* Fallback-idle: solid blue glow (unread output, output stopped) */
+.tap-indicator.tap-fallback-idle {
+  background: var(--tap-success-color, var(--tap-color1));
+  box-shadow: 0 0 8px var(--tap-success-color, var(--tap-color1)), 0 0 16px color-mix(in srgb, var(--tap-success-color, var(--tap-color1)) 50%, transparent);
+  opacity: 1;
+}
+
+/* Success: solid blue glow */
 .tap-indicator.tap-success {
   background: var(--tap-success-color);
   box-shadow: 0 0 8px var(--tap-success-color), 0 0 16px color-mix(in srgb, var(--tap-success-color) 50%, transparent);
   opacity: 1;
 }
 
-/* Failed: solid glow */
+/* Failed: solid purple glow */
 .tap-indicator.tap-failed {
   background: var(--tap-failed-color);
   box-shadow: 0 0 8px var(--tap-failed-color), 0 0 16px color-mix(in srgb, var(--tap-failed-color) 50%, transparent);

@@ -2,17 +2,9 @@ import { Injectable } from '@angular/core'
 import { AppService, ConfigService } from 'tabby-core'
 import { TerminalDecorator, BaseTerminalTabComponent } from 'tabby-terminal'
 import { TabActivityStateMachine, TabState } from './stateMachine'
+import { TabActivityPlusConfig, TAP_DEFAULTS } from './config'
 
 import './styles.css'
-
-interface TabActivityPlusConfig {
-    quietTimeout: number
-    runningColor1: string
-    runningColor2: string
-    successColor: string
-    failedColor: string
-    barHeight: number
-}
 
 interface TabActivityState {
     sm: TabActivityStateMachine
@@ -34,16 +26,13 @@ export class TabActivityDecorator extends TerminalDecorator {
     }
 
     attach (terminal: BaseTerminalTabComponent): void {
-        const defaults: TabActivityPlusConfig = { quietTimeout: 3, runningColor1: '#89b4fa', runningColor2: '#cba6f7', successColor: '#89b4fa', failedColor: '#cba6f7', barHeight: 3 }
-        const cfg: TabActivityPlusConfig = { ...defaults, ...(this.config.store as Record<string, any>).tabActivityPlus }
+        const cfg: TabActivityPlusConfig = { ...TAP_DEFAULTS, ...(this.config.store as Record<string, any>).tabActivityPlus }
         const quietTimeout = (cfg.quietTimeout ?? 3) * 1000
 
-        const sm = new TabActivityStateMachine(quietTimeout)
+        const sm = new TabActivityStateMachine(quietTimeout, (cfg.dismissTimeout ?? 2) * 1000, (cfg.runningIdleTimeout ?? 5) * 1000)
         const state: TabActivityState = { sm, cfg, indicatorEl: null, tabHeaderEl: null, origPosition: '' }
         this.tabStates.set(terminal, state)
 
-        // Subscribe to session output. Session may be null initially,
-        // so we also handle the case where binaryOutput$ is on the terminal itself.
         const output$ = terminal.session?.binaryOutput$ ?? (terminal as any).binaryOutput$
         if (output$) {
             this.subscribeUntilDetached(terminal,
@@ -56,22 +45,38 @@ export class TabActivityDecorator extends TerminalDecorator {
         this.subscribeUntilDetached(terminal,
             terminal.focused$.subscribe(() => {
                 sm.onFocused()
+                // Hide indicator when tab is focused (regardless of state)
+                this._removeIndicator(state)
             }),
         )
 
         this.subscribeUntilDetached(terminal,
             terminal.blurred$.subscribe(() => {
-                if (sm.state === 'running') {
-                    this._updateIndicator(terminal, 'running')
+                const s = sm.state
+                if (!sm.isSuppressed && (s === 'running' || s === 'running-idle')) {
+                    this._updateIndicator(terminal, s)
                 }
             }),
         )
 
         sm.onChange = (event) => {
-            if (terminal.hasFocus && event.next === 'running') {
+            if (terminal.hasFocus) {
+                if (event.next === 'running' || event.next === 'running-idle' || event.next === 'fallback' || event.next === 'fallback-idle') {
+                    return
+                }
+                if (event.next === 'idle') {
+                    this._removeIndicator(state)
+                    return
+                }
+            }
+            if (sm.isSuppressed) {
                 return
             }
             this._updateIndicator(terminal, event.next)
+            // Auto-dismiss success/failed on focused tab
+            if (terminal.hasFocus && (event.next === 'success' || event.next === 'failed')) {
+                sm.scheduleDismiss()
+            }
         }
     }
 
@@ -85,16 +90,9 @@ export class TabActivityDecorator extends TerminalDecorator {
         super.detach(terminal)
     }
 
-    /**
-     * Find the tab-header DOM element for a terminal.
-     * Primary: match by index in app.tabs (handles duplicate titles).
-     * Fallback: title text match with duplicate guard.
-     */
     private _findTabHeader (terminal: BaseTerminalTabComponent): HTMLElement | null {
         const headers = document.querySelectorAll('tab-header')
 
-        // Terminals are typically wrapped in SplitTabComponent,
-        // so first try direct match, then check parent.
         let idx = this.app.tabs.indexOf(terminal as any)
         if (idx < 0) {
             const parent = this.app.getParentTab(terminal as any)
@@ -106,7 +104,6 @@ export class TabActivityDecorator extends TerminalDecorator {
             return headers[idx] as HTMLElement
         }
 
-        // Fallback: title match, skip headers already claimed by another tab
         for (const header of Array.from(headers)) {
             const nameEl = header.querySelector('.name')
             if (nameEl) {
